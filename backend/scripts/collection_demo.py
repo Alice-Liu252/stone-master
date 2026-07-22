@@ -39,7 +39,7 @@ def main() -> None:
     print(f"=== {args.player} 的收藏（共 {len(collection)} 顆）===")
     for stone in collection:
         entry = encyclopedia.get_by_id(stone.encyclopedia_id)
-        print(f"#{stone.id}｜{stone.rarity} {stone.element}系｜對應真實石頭：{entry['name_zh']}｜HP{stone.stats['hp']} 攻{stone.stats['attack']} 防{stone.stats['defense']}")
+        print(f"#{stone.id}｜Lv.{stone.level}｜{stone.rarity} {stone.element}系｜對應真實石頭：{entry['name_zh']}｜HP{stone.stats['hp']} 攻{stone.stats['attack']} 防{stone.stats['defense']}")
 
 
 if __name__ == "__main__":

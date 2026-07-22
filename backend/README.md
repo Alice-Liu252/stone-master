@@ -83,8 +83,10 @@ elemental type cycle is internally consistent (every element covered
 exactly once, advantage/disadvantage are mirror images of each other),
 damage is floored at 1, battles are replayable (same seed -> same log),
 growth deltas are deterministic and capped correctly, mood decays lazily
-from elapsed time, personality follows actual interaction history, and
-evolution genuinely requires both thresholds and doesn't double-fire.
+from elapsed time, personality follows actual interaction history,
+evolution genuinely requires both thresholds and doesn't double-fire, and
+leveling up measurably increases battle stats (closing the loop between
+growth.py and battle.py).
 
 ## Limitations
 
@@ -124,11 +126,6 @@ Before any of this ships:
 - **Battle AI just picks a random affordable skill each turn** — no
   strategy, no targeting choices (1v1 only). Fine for proving the damage/
   turn/energy math works; a real battle system needs player-chosen actions.
-- **Leveling doesn't feed back into battle stats.** `growth.py` tracks
-  level/exp independently of `stats` on the stone_instances row — a Lv.20
-  stone hits exactly as hard as a Lv.1 stone with the same base stats
-  right now. Wiring level into `battle.combatant_from_stats()` (a stat
-  growth curve per level) is the natural next step.
 - **Evolution only swaps `template_id` (appends `_evolved`)**, no new base
   stats or template model — the real 3D asset + stat-curve change described
   in GDD 10 needs actual evolved template art in the base template library

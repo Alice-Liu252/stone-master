@@ -86,3 +86,21 @@ def test_affinity_is_capped_at_100():
     now_iso = datetime.now(timezone.utc).isoformat()
     update = growth.apply_action("play", current_exp=0, current_affinity=98, current_mood=50, last_interaction_at=now_iso)
     assert update.affinity == 100
+
+
+def test_scale_stats_for_level_1_is_unchanged():
+    base = {"hp": 40, "attack": 10, "defense": 10, "speed": 10, "energy": 15}
+    assert growth.scale_stats_for_level(base, level=1) == base
+
+
+def test_scale_stats_for_level_increases_with_level():
+    base = {"hp": 40, "attack": 10, "defense": 10, "speed": 10, "energy": 15}
+    lv1 = growth.scale_stats_for_level(base, level=1)
+    lv10 = growth.scale_stats_for_level(base, level=10)
+    for stat in base:
+        assert lv10[stat] > lv1[stat], stat
+
+
+def test_scale_stats_for_level_is_deterministic():
+    base = {"hp": 40, "attack": 10, "defense": 10, "speed": 10, "energy": 15}
+    assert growth.scale_stats_for_level(base, level=7) == growth.scale_stats_for_level(base, level=7)

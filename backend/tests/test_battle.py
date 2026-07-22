@@ -49,6 +49,15 @@ def test_damage_is_floored_at_1_even_against_absurd_defense():
     assert "1 傷害" in log_line
 
 
+def test_combatant_from_stats_applies_level_scaling():
+    base_stats = {"hp": 40, "attack": 10, "defense": 10, "speed": 10, "energy": 15}
+    lv1 = battle.combatant_from_stats("A", "火", base_stats, level=1)
+    lv10 = battle.combatant_from_stats("A", "火", base_stats, level=10)
+    assert lv1.max_hp == base_stats["hp"]  # level 1 leaves stats unchanged
+    assert lv10.max_hp > lv1.max_hp
+    assert lv10.attack > lv1.attack
+
+
 def test_a_much_stronger_combatant_tends_to_win():
     weak = _weak_combatant()
     strong = _strong_combatant()

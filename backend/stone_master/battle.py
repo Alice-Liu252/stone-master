@@ -15,7 +15,7 @@ import random
 from dataclasses import dataclass, field
 from typing import List, Optional
 
-from . import rules, skills
+from . import growth, rules, skills
 
 ENERGY_REGEN_PER_TURN = 5
 MAX_TURNS = 50  # safety cap so a stalemate ends in a draw, not an infinite loop
@@ -151,15 +151,22 @@ def simulate_battle(a: Combatant, b: Combatant, seed: str) -> BattleResult:
     return BattleResult(winner=None, turns=MAX_TURNS, log=log)
 
 
-def combatant_from_stats(name: str, element: str, stats: dict, skill_ids: Optional[List[str]] = None) -> Combatant:
-    """Build a Combatant from a stone's stats dict (fingerprint_store.StoneRecord.stats)."""
+def combatant_from_stats(
+    name: str, element: str, stats: dict, level: int = 1, skill_ids: Optional[List[str]] = None
+) -> Combatant:
+    """Build a Combatant from a stone's stats dict
+    (fingerprint_store.StoneRecord.stats), scaled for its current level
+    (growth.scale_stats_for_level) — so growth.py's leveling actually
+    shows up here, not just on a status screen. level=1 (the default)
+    leaves stats unchanged."""
+    leveled = growth.scale_stats_for_level(stats, level)
     return Combatant(
         name=name,
         element=element,
-        max_hp=stats["hp"],
-        attack=stats["attack"],
-        defense=stats["defense"],
-        speed=stats["speed"],
-        max_energy=stats["energy"],
+        max_hp=leveled["hp"],
+        attack=leveled["attack"],
+        defense=leveled["defense"],
+        speed=leveled["speed"],
+        max_energy=leveled["energy"],
         skill_ids=skill_ids or skills.loadout_for_element(element),
     )

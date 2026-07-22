@@ -43,8 +43,12 @@ def main() -> None:
         print("找不到其中一隻石頭，先用 scan_demo.py 掃描吧。", file=sys.stderr)
         raise SystemExit(1)
 
-    a = battle.combatant_from_stats(f"{args.player_a}的#{stone_a.id}", stone_a.element, stone_a.stats)
-    b = battle.combatant_from_stats(f"{args.player_b}的#{stone_b.id}", stone_b.element, stone_b.stats)
+    a = battle.combatant_from_stats(
+        f"{args.player_a}的#{stone_a.id}(Lv.{stone_a.level})", stone_a.element, stone_a.stats, level=stone_a.level
+    )
+    b = battle.combatant_from_stats(
+        f"{args.player_b}的#{stone_b.id}(Lv.{stone_b.level})", stone_b.element, stone_b.stats, level=stone_b.level
+    )
 
     result = battle.simulate_battle(a, b, seed=args.seed)
     print("\n".join(result.log))

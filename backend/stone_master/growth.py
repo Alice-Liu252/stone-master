@@ -31,6 +31,18 @@ MOOD_DECAY_PER_DAY = 5  # mood drifts down this much per day with no interaction
 EVOLVE_LEVEL_THRESHOLD = 10
 EVOLVE_AFFINITY_THRESHOLD = 50
 
+STAT_GROWTH_PER_LEVEL = 0.05  # +5% of base stat per level above 1
+
+
+def scale_stats_for_level(base_stats: dict, level: int) -> dict:
+    """Leveling should make a stone measurably stronger in battle, not
+    just a number on a status screen — see battle.combatant_from_stats().
+    Applies uniformly across all five stats; a real game may want
+    per-species growth curves, this is the simplest version that closes
+    the loop between growth.py and battle.py."""
+    multiplier = 1 + STAT_GROWTH_PER_LEVEL * (level - 1)
+    return {stat: max(1, round(value * multiplier)) for stat, value in base_stats.items()}
+
 _DIARY_OPENERS = {
     "feed": ["你餵了牠喜歡的礦物餅乾，", "牠開心地吃著你給的食物，"],
     "play": ["你陪牠玩了一會兒，", "你們一起在附近探索了一下，"],
