@@ -16,7 +16,7 @@ import random
 from dataclasses import dataclass
 from typing import Dict
 
-from . import rules
+from . import encyclopedia, rules
 from .vision import Features
 
 
@@ -28,6 +28,7 @@ class StoneSpecies:
     rarity: str
     element: str
     stats: Dict[str, int]
+    encyclopedia_id: str  # links to a real-world species in encyclopedia.py
 
     def to_dict(self) -> dict:
         return {
@@ -37,6 +38,7 @@ class StoneSpecies:
             "rarity": self.rarity,
             "element": self.element,
             "stats": self.stats,
+            "encyclopedia_id": self.encyclopedia_id,
         }
 
 
@@ -80,6 +82,8 @@ def generate_species(features: Features) -> StoneSpecies:
         for stat, bounds in rules.BASE_STAT_RANGES.items()
     }
 
+    encyclopedia_entry = encyclopedia.match_entry(rock_type, seed_hex)
+
     return StoneSpecies(
         seed=seed_hex,
         rock_type=rock_type,
@@ -87,4 +91,5 @@ def generate_species(features: Features) -> StoneSpecies:
         rarity=rarity,
         element=element,
         stats=stats,
+        encyclopedia_id=encyclopedia_entry["id"],
     )

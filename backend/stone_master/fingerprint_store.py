@@ -41,6 +41,7 @@ CREATE TABLE IF NOT EXISTS stone_instances (
     rarity TEXT NOT NULL,
     element TEXT NOT NULL,
     stats_json TEXT NOT NULL,
+    encyclopedia_id TEXT NOT NULL,
     level INTEGER NOT NULL DEFAULT 1,
     exp INTEGER NOT NULL DEFAULT 0,
     affinity INTEGER NOT NULL DEFAULT 0,
@@ -60,6 +61,7 @@ class StoneRecord:
     rarity: str
     element: str
     stats: dict
+    encyclopedia_id: str
     level: int
     exp: int
     affinity: int
@@ -75,6 +77,7 @@ class StoneRecord:
             "rarity": self.rarity,
             "element": self.element,
             "stats": self.stats,
+            "encyclopedia_id": self.encyclopedia_id,
             "level": self.level,
             "exp": self.exp,
             "affinity": self.affinity,
@@ -99,6 +102,7 @@ def _row_to_record(row: sqlite3.Row) -> StoneRecord:
         rarity=row["rarity"],
         element=row["element"],
         stats=json.loads(row["stats_json"]),
+        encyclopedia_id=row["encyclopedia_id"],
         level=row["level"],
         exp=row["exp"],
         affinity=row["affinity"],
@@ -177,8 +181,9 @@ class FingerprintStore:
             """
             INSERT INTO stone_instances (
                 player_id, phash_hex, embedding_json, rock_type, template_id,
-                rarity, element, stats_json, discovered_at, last_seen_at
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                rarity, element, stats_json, encyclopedia_id, discovered_at,
+                last_seen_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 player_id,
@@ -189,6 +194,7 @@ class FingerprintStore:
                 species.rarity,
                 species.element,
                 json.dumps(species.stats),
+                species.encyclopedia_id,
                 now,
                 now,
             ),
@@ -198,6 +204,13 @@ class FingerprintStore:
             "SELECT * FROM stone_instances WHERE id = ?", (cursor.lastrowid,)
         ).fetchone()
         return ScanResult(is_new=True, record=_row_to_record(created), similarity=None)
+
+    def get_by_id(self, player_id: str, stone_id: int) -> Optional[StoneRecord]:
+        row = self._conn.execute(
+            "SELECT * FROM stone_instances WHERE id = ? AND player_id = ?",
+            (stone_id, player_id),
+        ).fetchone()
+        return _row_to_record(row) if row else None
 
     def list_for_player(self, player_id: str) -> list:
         rows = self._conn.execute(
