@@ -19,12 +19,14 @@ as-is.
 | `stone_master/assistant.py` | AI 個人化助手 (GDD 第 19 章): persona wrapper for encyclopedia answers ("小晶"), plus `recommend()` — analyzes a player's real collection and suggests what to explore/train next |
 | `stone_master/skills.py` | Skill data (GDD 第 14 章): attack/defense/support/ultimate moves with concrete power/cost numbers |
 | `stone_master/battle.py` | Battle system (GDD 第 13 章): 十系 elemental type cycle, damage formula, deterministic turn-based simulator |
+| `stone_master/growth.py` | Growth/care system (GDD 第 10 章): feed/play/clean/sleep effects, leveling, lazy mood decay, personality, evolution eligibility |
 | `scripts/make_test_rocks.py` | Generates synthetic speckled-blob rock photos (no real rock dataset available in this environment) |
 | `scripts/scan_demo.py` | CLI that runs the full scan pipeline end to end against a real image file |
 | `scripts/collection_demo.py` | CLI: list a player's whole collection with stone ids (so you don't have to guess ids elsewhere) |
 | `scripts/ask_demo.py` | CLI: ask a scanned stone "這是什麼石頭？" etc., answered by 小晶 from real encyclopedia data |
 | `scripts/assistant_demo.py` | CLI: get 小晶's personalized recommendation based on a player's whole collection |
 | `scripts/battle_demo.py` | CLI: simulate a full turn-based battle between two scanned stones |
+| `scripts/care_demo.py` | CLI: feed/play/clean/sleep a scanned stone, or evolve it once eligible |
 
 ## Setup
 
@@ -57,6 +59,12 @@ python3 scripts/collection_demo.py --player alice
 
 # battle two scanned stones (same or different players)
 python3 scripts/battle_demo.py --player-a alice --stone-id-a 1 --player-b bob --stone-id-b 2
+
+# care for a stone -- feed/play/clean/sleep, each has a different effect
+python3 scripts/care_demo.py --player alice --stone-id 1 --action feed
+
+# once it hits level 10 and affinity 50, it can evolve
+python3 scripts/care_demo.py --player alice --stone-id 1 --evolve
 ```
 
 ## Tests
@@ -73,7 +81,10 @@ encyclopedia answers are grounded in the real data (not invented),
 personalized recommendations are deterministic for a given collection, the
 elemental type cycle is internally consistent (every element covered
 exactly once, advantage/disadvantage are mirror images of each other),
-damage is floored at 1, and battles are replayable (same seed -> same log).
+damage is floored at 1, battles are replayable (same seed -> same log),
+growth deltas are deterministic and capped correctly, mood decays lazily
+from elapsed time, personality follows actual interaction history, and
+evolution genuinely requires both thresholds and doesn't double-fire.
 
 ## Limitations
 
@@ -113,3 +124,12 @@ Before any of this ships:
 - **Battle AI just picks a random affordable skill each turn** — no
   strategy, no targeting choices (1v1 only). Fine for proving the damage/
   turn/energy math works; a real battle system needs player-chosen actions.
+- **Leveling doesn't feed back into battle stats.** `growth.py` tracks
+  level/exp independently of `stats` on the stone_instances row — a Lv.20
+  stone hits exactly as hard as a Lv.1 stone with the same base stats
+  right now. Wiring level into `battle.combatant_from_stats()` (a stat
+  growth curve per level) is the natural next step.
+- **Evolution only swaps `template_id` (appends `_evolved`)**, no new base
+  stats or template model — the real 3D asset + stat-curve change described
+  in GDD 10 needs actual evolved template art in the base template library
+  (`rules.BASE_TEMPLATES`), not just a string suffix.

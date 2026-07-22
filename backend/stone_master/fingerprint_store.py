@@ -23,7 +23,7 @@ from typing import Optional, Union
 
 import numpy as np
 
-from . import vision
+from . import growth, vision
 from .generation import generate_species
 from .vision import Features
 
@@ -45,6 +45,13 @@ CREATE TABLE IF NOT EXISTS stone_instances (
     level INTEGER NOT NULL DEFAULT 1,
     exp INTEGER NOT NULL DEFAULT 0,
     affinity INTEGER NOT NULL DEFAULT 0,
+    mood INTEGER NOT NULL DEFAULT 70,
+    feed_count INTEGER NOT NULL DEFAULT 0,
+    play_count INTEGER NOT NULL DEFAULT 0,
+    clean_count INTEGER NOT NULL DEFAULT 0,
+    sleep_count INTEGER NOT NULL DEFAULT 0,
+    evolved INTEGER NOT NULL DEFAULT 0,
+    diary_json TEXT NOT NULL DEFAULT '[]',
     discovered_at TEXT NOT NULL,
     last_seen_at TEXT NOT NULL
 );
@@ -65,8 +72,25 @@ class StoneRecord:
     level: int
     exp: int
     affinity: int
+    mood: int
+    feed_count: int
+    play_count: int
+    clean_count: int
+    sleep_count: int
+    evolved: bool
+    diary: list
     discovered_at: str
     last_seen_at: str
+
+    @property
+    def personality(self) -> str:
+        return growth.personality(self.feed_count, self.play_count, self.clean_count, self.sleep_count)
+
+    @property
+    def current_mood(self) -> int:
+        """Mood right now, accounting for lazy decay since last_seen_at —
+        prefer this over the raw `.mood` field almost everywhere."""
+        return growth.decayed_mood(self.mood, self.last_seen_at)
 
     def to_dict(self) -> dict:
         return {
@@ -81,6 +105,10 @@ class StoneRecord:
             "level": self.level,
             "exp": self.exp,
             "affinity": self.affinity,
+            "mood": self.current_mood,
+            "personality": self.personality,
+            "evolved": self.evolved,
+            "diary": self.diary,
             "discovered_at": self.discovered_at,
             "last_seen_at": self.last_seen_at,
         }
@@ -106,6 +134,13 @@ def _row_to_record(row: sqlite3.Row) -> StoneRecord:
         level=row["level"],
         exp=row["exp"],
         affinity=row["affinity"],
+        mood=row["mood"],
+        feed_count=row["feed_count"],
+        play_count=row["play_count"],
+        clean_count=row["clean_count"],
+        sleep_count=row["sleep_count"],
+        evolved=bool(row["evolved"]),
+        diary=json.loads(row["diary_json"]),
         discovered_at=row["discovered_at"],
         last_seen_at=row["last_seen_at"],
     )
@@ -211,6 +246,56 @@ class FingerprintStore:
             (stone_id, player_id),
         ).fetchone()
         return _row_to_record(row) if row else None
+
+    _COUNT_COLUMN_FOR_ACTION = {
+        "feed": "feed_count",
+        "play": "play_count",
+        "clean": "clean_count",
+        "sleep": "sleep_count",
+    }
+
+    def care_for(self, player_id: str, stone_id: int, action: str) -> Optional[StoneRecord]:
+        """GDD 第 10 章: 餵食/玩耍/清潔/睡眠. Returns None if the stone
+        doesn't exist (or isn't this player's) instead of raising, since
+        that's a normal "not found" case for a CLI/API caller — but an
+        unknown `action` name still raises via growth.apply_action()."""
+        stone = self.get_by_id(player_id, stone_id)
+        if stone is None:
+            return None
+
+        update = growth.apply_action(action, stone.exp, stone.affinity, stone.mood, stone.last_seen_at)
+        count_column = self._COUNT_COLUMN_FOR_ACTION[action]
+        new_diary = stone.diary + [update.diary_entry]
+        now = datetime.now(timezone.utc).isoformat()
+
+        self._conn.execute(
+            f"""
+            UPDATE stone_instances
+            SET exp = ?, affinity = ?, mood = ?, level = ?,
+                {count_column} = {count_column} + 1,
+                diary_json = ?, last_seen_at = ?
+            WHERE id = ?
+            """,
+            (update.exp, update.affinity, update.mood, update.level, json.dumps(new_diary), now, stone_id),
+        )
+        self._conn.commit()
+        return self.get_by_id(player_id, stone_id)
+
+    def evolve(self, player_id: str, stone_id: int) -> Optional[StoneRecord]:
+        """GDD 第 10 章: 進化條件是等級與好感度雙門檻，進化只換模板 id、不
+        重置任何養成進度. Returns None if the stone doesn't exist, is
+        already evolved, or hasn't met the thresholds yet."""
+        stone = self.get_by_id(player_id, stone_id)
+        if stone is None or stone.evolved or not growth.can_evolve(stone.level, stone.affinity):
+            return None
+
+        evolved_template = f"{stone.template_id}_evolved"
+        self._conn.execute(
+            "UPDATE stone_instances SET template_id = ?, evolved = 1 WHERE id = ?",
+            (evolved_template, stone_id),
+        )
+        self._conn.commit()
+        return self.get_by_id(player_id, stone_id)
 
     def list_for_player(self, player_id: str) -> list:
         rows = self._conn.execute(

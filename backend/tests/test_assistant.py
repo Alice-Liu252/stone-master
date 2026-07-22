@@ -15,6 +15,13 @@ def _stone(id, rock_type, rarity, encyclopedia_id, discovered_at):
         level=1,
         exp=0,
         affinity=0,
+        mood=70,
+        feed_count=0,
+        play_count=0,
+        clean_count=0,
+        sleep_count=0,
+        evolved=False,
+        diary=[],
         discovered_at=discovered_at,
         last_seen_at=discovered_at,
     )
