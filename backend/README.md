@@ -19,9 +19,11 @@ as-is.
 | `stone_master/assistant.py` | AI 個人化助手 (GDD 第 19 章): persona wrapper for encyclopedia answers ("小晶"), plus `recommend()` — analyzes a player's real collection and suggests what to explore/train next |
 | `stone_master/skills.py` | Skill data (GDD 第 14 章): attack/defense/support/ultimate moves with concrete power/cost numbers |
 | `stone_master/battle.py` | Battle system (GDD 第 13 章): 十系 elemental type cycle, damage formula, deterministic turn-based simulator |
-| `stone_master/growth.py` | Growth/care system (GDD 第 10 章): feed/play/clean/sleep effects, leveling, lazy mood decay, personality, evolution eligibility |
+| `stone_master/growth.py` | Growth/care system (GDD 第 10 章): feed/play/clean/sleep effects, leveling, lazy mood decay, personality, evolution eligibility, and stat scaling per level |
+| `stone_master/capture.py` | Capture system (GDD 第 12 章): tool/bait/rarity/attempt-number success-rate formula — capture can fail |
 | `scripts/make_test_rocks.py` | Generates synthetic speckled-blob rock photos (no real rock dataset available in this environment) |
-| `scripts/scan_demo.py` | CLI that runs the full scan pipeline end to end against a real image file |
+| `scripts/scan_demo.py` | CLI that runs the full scan pipeline end to end against a real image file (always succeeds — see Limitations) |
+| `scripts/capture_demo.py` | CLI: the real capture mechanic — pick a tool/bait, capture can fail, retry with a higher `--attempt` |
 | `scripts/collection_demo.py` | CLI: list a player's whole collection with stone ids (so you don't have to guess ids elsewhere) |
 | `scripts/ask_demo.py` | CLI: ask a scanned stone "這是什麼石頭？" etc., answered by 小晶 from real encyclopedia data |
 | `scripts/assistant_demo.py` | CLI: get 小晶's personalized recommendation based on a player's whole collection |
@@ -65,6 +67,10 @@ python3 scripts/care_demo.py --player alice --stone-id 1 --action feed
 
 # once it hits level 10 and affinity 50, it can evolve
 python3 scripts/care_demo.py --player alice --stone-id 1 --evolve
+
+# the REAL capture mechanic -- this can fail (scan_demo.py always succeeds
+# for simplicity elsewhere in this prototype, this one doesn't)
+python3 scripts/capture_demo.py --player alice --image data/test_rocks/rock_1.png --tool legendary_orb --bait crystal_powder
 ```
 
 ## Tests
@@ -84,9 +90,11 @@ exactly once, advantage/disadvantage are mirror images of each other),
 damage is floored at 1, battles are replayable (same seed -> same log),
 growth deltas are deterministic and capped correctly, mood decays lazily
 from elapsed time, personality follows actual interaction history,
-evolution genuinely requires both thresholds and doesn't double-fire, and
+evolution genuinely requires both thresholds and doesn't double-fire,
 leveling up measurably increases battle stats (closing the loop between
-growth.py and battle.py).
+growth.py and battle.py), a failed capture persists nothing, different
+players get independent rolls on the same rock, and retrying after a
+failure genuinely gets a fresh (better) roll.
 
 ## Limitations
 
@@ -130,3 +138,12 @@ Before any of this ships:
   stats or template model — the real 3D asset + stat-curve change described
   in GDD 10 needs actual evolved template art in the base template library
   (`rules.BASE_TEMPLATES`), not just a string suffix.
+- **Two parallel ways to turn a photo into a stone**: `match_or_create()`
+  (always succeeds — used by `scan_demo.py` and everything downstream of
+  it: `ask_demo.py`, `battle_demo.py`, `care_demo.py`) and
+  `attempt_capture()` (can fail — the real GDD 12 mechanic). Kept separate
+  on purpose so adding the capture-failure mechanic couldn't break
+  anything already working (see the commit that introduced `capture.py`).
+  The real game only needs one path: scan (always identifies) -> capture
+  (can fail) -> everything else operates on what's actually caught.
+  Unifying these is a good next cleanup once the capture math is tuned.

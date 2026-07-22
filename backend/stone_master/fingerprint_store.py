@@ -23,8 +23,8 @@ from typing import Optional, Union
 
 import numpy as np
 
-from . import growth, vision
-from .generation import generate_species
+from . import capture, growth, vision
+from .generation import StoneSpecies, generate_species
 from .vision import Features
 
 HAMMING_PREFILTER_THRESHOLD = 10  # out of 64 bits
@@ -121,6 +121,18 @@ class ScanResult:
     similarity: Optional[float]  # None when is_new (nothing to compare to)
 
 
+@dataclass(frozen=True)
+class CaptureResult:
+    """Result of FingerprintStore.attempt_capture() — unlike ScanResult,
+    a capture attempt can fail and persist nothing."""
+
+    outcome: str  # "recognized" | "captured" | "failed"
+    record: Optional[StoneRecord]  # None only when outcome == "failed"
+    similarity: Optional[float]  # set only when outcome == "recognized"
+    chance: Optional[float]  # capture success rate used, when a roll happened
+    species_preview: Optional[dict]  # set only when outcome == "failed" — what got away
+
+
 def _row_to_record(row: sqlite3.Row) -> StoneRecord:
     return StoneRecord(
         id=row["id"],
@@ -190,28 +202,20 @@ class FingerprintStore:
             return best_row, best_similarity
         return None
 
-    def match_or_create(
-        self, player_id: str, image: Union[str, Path]
-    ) -> ScanResult:
-        features = vision.extract_features(image)
-        match = self._find_best_match(player_id, features)
+    def _touch_last_seen(self, row_id: int) -> sqlite3.Row:
         now = datetime.now(timezone.utc).isoformat()
+        self._conn.execute(
+            "UPDATE stone_instances SET last_seen_at = ? WHERE id = ?", (now, row_id)
+        )
+        self._conn.commit()
+        return self._conn.execute(
+            "SELECT * FROM stone_instances WHERE id = ?", (row_id,)
+        ).fetchone()
 
-        if match is not None:
-            row, similarity = match
-            self._conn.execute(
-                "UPDATE stone_instances SET last_seen_at = ? WHERE id = ?",
-                (now, row["id"]),
-            )
-            self._conn.commit()
-            refreshed = self._conn.execute(
-                "SELECT * FROM stone_instances WHERE id = ?", (row["id"],)
-            ).fetchone()
-            return ScanResult(
-                is_new=False, record=_row_to_record(refreshed), similarity=similarity
-            )
-
-        species = generate_species(features)
+    def _insert_new_stone(
+        self, player_id: str, features: Features, species: StoneSpecies
+    ) -> sqlite3.Row:
+        now = datetime.now(timezone.utc).isoformat()
         cursor = self._conn.execute(
             """
             INSERT INTO stone_instances (
@@ -235,10 +239,84 @@ class FingerprintStore:
             ),
         )
         self._conn.commit()
-        created = self._conn.execute(
+        return self._conn.execute(
             "SELECT * FROM stone_instances WHERE id = ?", (cursor.lastrowid,)
         ).fetchone()
+
+    def match_or_create(
+        self, player_id: str, image: Union[str, Path]
+    ) -> ScanResult:
+        """Simplified scan path used throughout this prototype (scan_demo.py
+        and everything downstream of it): a newly-identified rock is always
+        cataloged immediately. This conflates GDD 第 4 章 (AR 掃描, always
+        identifies) with 第 12 章 (捕捉, a separate step that can fail) for
+        simplicity — see attempt_capture() for the real capture mechanic
+        with tools/bait/success rate, layered on top without changing this
+        method's existing behavior."""
+        features = vision.extract_features(image)
+        match = self._find_best_match(player_id, features)
+
+        if match is not None:
+            row, similarity = match
+            refreshed = self._touch_last_seen(row["id"])
+            return ScanResult(
+                is_new=False, record=_row_to_record(refreshed), similarity=similarity
+            )
+
+        species = generate_species(features)
+        created = self._insert_new_stone(player_id, features, species)
         return ScanResult(is_new=True, record=_row_to_record(created), similarity=None)
+
+    def attempt_capture(
+        self,
+        player_id: str,
+        image: Union[str, Path],
+        tool: str = "resonance_orb",
+        bait: Optional[str] = None,
+        attempt_number: int = 1,
+    ) -> CaptureResult:
+        """GDD 第 12 章 捕捉系統: unlike match_or_create(), a newly-identified
+        rock is only cataloged if the capture roll succeeds. Rescanning a
+        rock you've already caught still just recognizes it (no re-roll
+        needed — it's already yours)."""
+        features = vision.extract_features(image)
+        match = self._find_best_match(player_id, features)
+
+        if match is not None:
+            row, similarity = match
+            refreshed = self._touch_last_seen(row["id"])
+            return CaptureResult(
+                outcome="recognized",
+                record=_row_to_record(refreshed),
+                similarity=similarity,
+                chance=None,
+                species_preview=None,
+            )
+
+        species = generate_species(features)
+        # Seed mixes in player_id + attempt_number (not just the rock's own
+        # fingerprint) so different players rolling on the same rock type
+        # get independent outcomes, and retrying gets a fresh roll.
+        seed = f"{species.seed}:{player_id}:capture:{attempt_number}"
+        roll = capture.attempt(tool, bait, species.rarity, attempt_number, seed=seed)
+
+        if not roll.success:
+            return CaptureResult(
+                outcome="failed",
+                record=None,
+                similarity=None,
+                chance=roll.chance,
+                species_preview={"rarity": species.rarity, "element": species.element},
+            )
+
+        created = self._insert_new_stone(player_id, features, species)
+        return CaptureResult(
+            outcome="captured",
+            record=_row_to_record(created),
+            similarity=None,
+            chance=roll.chance,
+            species_preview=None,
+        )
 
     def get_by_id(self, player_id: str, stone_id: int) -> Optional[StoneRecord]:
         row = self._conn.execute(
