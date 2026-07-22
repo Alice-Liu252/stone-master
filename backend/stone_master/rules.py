@@ -30,6 +30,17 @@ ELEMENTS = [
     "大地", "水晶", "光", "暗", "星辰",
 ]
 
+# 克制循環 (GDD 13: "彼此構成克制循環" — plural "循環" is deliberate here,
+# it's two interlocking 6- and 4- element cycles rather than one big
+# rock-paper-scissors, so the ten elements split into a physical cycle and
+# a mystical cycle instead of every element needing an opinion about
+# every other one). Each element beats the *next* one in its cycle and
+# loses to the *previous* one; see battle.type_multiplier().
+ELEMENT_CYCLES = [
+    ["火", "冰", "森林", "大地", "雷", "水"],  # 火剋冰、冰剋森林...一路回到水剋火
+    ["光", "暗", "星辰", "水晶"],              # 光剋暗、暗剋星辰、星辰剋水晶、水晶剋光
+]
+
 # Base 3D template library (GDD 第 4 章 / 技術架構文件第 4 章：參數化基礎模型
 # + 材質投影). rock_type groups templates so the generation heuristic can
 # pick a plausible one for a given photo; real production library is

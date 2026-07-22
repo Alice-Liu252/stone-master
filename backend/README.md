@@ -17,10 +17,14 @@ as-is.
 | `stone_master/fingerprint_store.py` | SQLite-backed per-player store; `match_or_create()` is the full "did we see this rock before?" pipeline |
 | `stone_master/encyclopedia.py` | AI 石頭百科 (GDD 第 5 章): 10 real rock/mineral entries + template-based Q&A, grounded only in that data — no invented facts |
 | `stone_master/assistant.py` | AI 個人化助手 (GDD 第 19 章): persona wrapper for encyclopedia answers ("小晶"), plus `recommend()` — analyzes a player's real collection and suggests what to explore/train next |
+| `stone_master/skills.py` | Skill data (GDD 第 14 章): attack/defense/support/ultimate moves with concrete power/cost numbers |
+| `stone_master/battle.py` | Battle system (GDD 第 13 章): 十系 elemental type cycle, damage formula, deterministic turn-based simulator |
 | `scripts/make_test_rocks.py` | Generates synthetic speckled-blob rock photos (no real rock dataset available in this environment) |
 | `scripts/scan_demo.py` | CLI that runs the full scan pipeline end to end against a real image file |
+| `scripts/collection_demo.py` | CLI: list a player's whole collection with stone ids (so you don't have to guess ids elsewhere) |
 | `scripts/ask_demo.py` | CLI: ask a scanned stone "這是什麼石頭？" etc., answered by 小晶 from real encyclopedia data |
 | `scripts/assistant_demo.py` | CLI: get 小晶's personalized recommendation based on a player's whole collection |
+| `scripts/battle_demo.py` | CLI: simulate a full turn-based battle between two scanned stones |
 
 ## Setup
 
@@ -46,6 +50,13 @@ python3 scripts/ask_demo.py --player alice --stone-id 1 --list-questions
 
 # get a personalized recommendation based on your whole collection
 python3 scripts/assistant_demo.py --player alice
+
+# list your collection (stone ids are global across players, not reset
+# per player, so check here before using ask_demo.py / battle_demo.py)
+python3 scripts/collection_demo.py --player alice
+
+# battle two scanned stones (same or different players)
+python3 scripts/battle_demo.py --player-a alice --stone-id-a 1 --player-b bob --stone-id-b 2
 ```
 
 ## Tests
@@ -58,8 +69,11 @@ python3 -m pytest -v
 Covers: deterministic feature extraction, deterministic generation, rescanning
 the same rock matches instead of duplicating, two players scanning the same
 rock get independent instances, collections persist across store reopen,
-encyclopedia answers are grounded in the real data (not invented), and
-personalized recommendations are deterministic for a given collection.
+encyclopedia answers are grounded in the real data (not invented),
+personalized recommendations are deterministic for a given collection, the
+elemental type cycle is internally consistent (every element covered
+exactly once, advantage/disadvantage are mirror images of each other),
+damage is floored at 1, and battles are replayable (same seed -> same log).
 
 ## Limitations
 
@@ -87,3 +101,15 @@ Before any of this ships:
   synthetic photo gets matched to. `stone_master/encyclopedia.py` Q&A is
   template-based, not a real LLM/RAG system (see `docs/TECHNICAL_ARCHITECTURE.md`
   section 5 for what that should eventually be).
+- **Stone ids are global (a single counter across every player), not reset
+  per player.** Harmless for the database, but confusing in the CLIs —
+  use `scripts/collection_demo.py` to look up a player's actual ids rather
+  than assuming their first stone is `#1`. The real client should show
+  players a per-player display number, not the raw database id.
+- **Only 6 of the 10 elements have a dedicated named attack skill** in
+  `stone_master/skills.py` (matches the GDD's example list, which wasn't
+  exhaustive). 水/森林/光/暗 fall back to a generic "elemental strike" —
+  writing dedicated flavor skills for those four is a good next content task.
+- **Battle AI just picks a random affordable skill each turn** — no
+  strategy, no targeting choices (1v1 only). Fine for proving the damage/
+  turn/energy math works; a real battle system needs player-chosen actions.
