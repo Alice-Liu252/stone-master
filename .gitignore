@@ -1,0 +1,42 @@
+# Unity generated
+[Ll]ibrary/
+[Tt]emp/
+[Oo]bj/
+[Bb]uild/
+[Bb]uilds/
+[Ll]ogs/
+[Uu]ser[Ss]ettings/
+[Mm]emoryCaptures/
+
+*.csproj
+*.unityproj
+*.sln
+*.suo
+*.user
+*.userprefs
+*.pidb
+*.booproj
+*.svd
+*.pdb
+*.mdb
+*.opendb
+*.VC.db
+
+*.apk
+*.aab
+*.unitypackage
+*.app
+
+.vs/
+.gradle/
+ExportedObj/
+.consulo/
+crashlytics-build.properties
+
+# macOS
+.DS_Store
+
+# Node (backend/tools)
+node_modules/
+dist/
+.env
