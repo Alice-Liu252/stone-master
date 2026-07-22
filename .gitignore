@@ -40,3 +40,14 @@ crashlytics-build.properties
 node_modules/
 dist/
 .env
+
+# Python (backend/ prototype)
+__pycache__/
+*.pyc
+.pytest_cache/
+*.egg-info/
+.venv/
+
+# runtime data (SQLite db, generated synthetic test photos)
+backend/data/*.db
+backend/data/test_rocks/

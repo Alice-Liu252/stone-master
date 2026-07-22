@@ -1,0 +1,5 @@
+Pillow>=11
+numpy>=2
+
+# dev/test only
+pytest>=8

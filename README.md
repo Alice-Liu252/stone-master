@@ -11,6 +11,10 @@
 - [技術架構文件](docs/TECHNICAL_ARCHITECTURE.md)
 - [開發路線圖](docs/ROADMAP.md)
 
+## 程式碼
+
+- [backend/](backend/) — Phase 0 掃描 pipeline 邏輯原型（視覺特徵抽取 → 決定性生成 → 同顆石頭辨識），Python，可直接跑、有測試。尚無 Unity/AR 客戶端與正式後端。
+
 ## 目前狀態
 
-設計階段（Phase 0 尚未開始）。詳見路線圖。
+Phase 0 進行中：掃描/辨識/生成 pipeline 邏輯已驗證（見 [backend/README.md](backend/README.md)）。Unity/AR 客戶端尚未開始，待本機安裝 Unity Hub + Xcode/Android SDK。詳見路線圖。
