@@ -11,6 +11,7 @@
 - [技術架構文件](docs/TECHNICAL_ARCHITECTURE.md)
 - [開發路線圖](docs/ROADMAP.md)
 - [AI 石頭百科種子資料（10 種範例）](docs/species/ENCYCLOPEDIA_SAMPLE.md)
+- [AI 石頭百科種子資料（第二批 8 種）](docs/species/ENCYCLOPEDIA_02.md)
 
 ## 程式碼
 
